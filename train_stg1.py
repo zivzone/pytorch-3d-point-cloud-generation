@@ -2,6 +2,9 @@ import options
 import utils
 from trainer import TrainerStage1
 
+import warnings
+warnings.filterwarnings("ignore")
+
 if __name__ == "__main__":
 
     print("=======================================================")

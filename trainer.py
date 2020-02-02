@@ -16,6 +16,9 @@ class TrainerStage1:
         self.data_loaders = data_loaders
         self.l1 = criterions[0]
         self.sigmoid_bce = criterions[1]
+        ###################################
+        self.cross_entropy = criterions[1]
+        ###################################
         self.iteration = 0
         self.epoch = 0
         self.history = []
@@ -41,12 +44,14 @@ class TrainerStage1:
                 'val_loss': val_epoch_loss["epoch_loss"],
             }
             self.history.append(hist)
-
-            if self.on_after_epoch is not None:
-                images = self._make_images_board(model)
-                self.on_after_epoch(model, pd.DataFrame(self.history),
-                                    images, self.epoch)
-
+            
+            
+            #######################################################
+#             if self.on_after_epoch is not None:
+#                 images = self._make_images_board(model)
+#                 self.on_after_epoch(model, pd.DataFrame(self.history),
+#                                     images, self.epoch)
+            #######################################################
         print("======= TRAINING DONE =======")
         return pd.DataFrame(self.history)
 
@@ -76,12 +81,35 @@ class TrainerStage1:
                 XYZ, maskLogit = model(input_images)
                 XY = XYZ[:, :self.cfg.outViewN * 2, :, :]
                 depth = XYZ[:, self.cfg.outViewN * 2:self.cfg.outViewN * 3, :,  :]
-                mask = (maskLogit > 0).byte()
+                ##################################
+                
+                #mask = (maskLogit > 0).byte()
+                mask = (maskLogit[:,8:16,:,:] > 0).byte()
+                
+                ###################################
+#                 print(mask.type())
+#                 print(mask.size())
+#                 print(maskGT.type())
+#                 print(maskGT.size())
+
                 # ------ Compute loss ------
                 loss_XYZ = self.l1(XY, XYGT)
+                ####################################################################
                 loss_XYZ += self.l1(depth.masked_select(mask),
                                     depthGT.masked_select(mask))
-                loss_mask = self.sigmoid_bce(maskLogit, maskGT)
+                ####################################################################
+                
+                #######################################################
+                #loss_mask = self.sigmoid_bce(maskLogit, maskGT.long())
+#                 print(maskLogit[:,0:8,:,:].type())
+#                 print(maskLogit[:,0:8,:,:].size())
+                maskLogit = torch.stack([maskLogit[:,0:8,:,:],maskLogit[:,8:16,:,:]],dim=1)
+#                 print(maskLogit.type())
+#                 print(maskLogit.size())
+                loss_mask = self.cross_entropy(maskLogit, maskGT.long())
+                
+                #######################################################
+                #loss_mask = self.sigmoid_bce(maskLogit, maskGT)
                 loss = loss_mask + self.cfg.lambdaDepth * loss_XYZ
 
                 # ------ Update weights ------
@@ -136,12 +164,29 @@ class TrainerStage1:
                 XYZ, maskLogit = model(input_images)
                 XY = XYZ[:, :self.cfg.outViewN * 2, :, :]
                 depth = XYZ[:, self.cfg.outViewN * 2:self.cfg.outViewN*3,:,:]
-                mask = (maskLogit > 0).byte()
+                ##################################
+                #mask = (maskLogit > 0).byte()
+
+                #mask = (maskLogit > 0).byte()
+                mask = (maskLogit[:,8:16,:,:] > 0).byte()
+                
+                ###################################
                 # ------ Compute loss ------
                 loss_XYZ = self.l1(XY, XYGT)
                 loss_XYZ += self.l1(depth.masked_select(mask),
                                     depthGT.masked_select(mask))
-                loss_mask = self.sigmoid_bce(maskLogit, maskGT)
+                #######################################################
+                #loss_mask = self.sigmoid_bce(maskLogit, maskGT.long())
+#                 print(maskLogit[:,0:8,:,:].type())
+#                 print(maskLogit[:,0:8,:,:].size())
+                maskLogit = torch.stack([maskLogit[:,0:8,:,:],maskLogit[:,8:16,:,:]],dim=1)
+#                 print(maskLogit.type())
+#                 print(maskLogit.size())
+                loss_mask = self.cross_entropy(maskLogit, maskGT.long())
+                
+                #######################################################
+                #loss_mask = self.sigmoid_bce(maskLogit, maskGT)
+                #loss_mask = self.sigmoid_bce(maskLogit, maskGT)
                 loss = loss_mask + self.cfg.lambdaDepth * loss_XYZ
 
             running_loss_XYZ += loss_XYZ.item() * input_images.size(0)

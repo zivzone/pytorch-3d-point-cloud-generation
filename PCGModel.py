@@ -36,14 +36,22 @@ def linear_block(in_c, out_c):
 def pixel_bias(outViewN, outW, outH, renderDepth):
     X, Y = torch.meshgrid([torch.arange(outH), torch.arange(outW)])
     X, Y = X.float(), Y.float() # [H,W]
+#     initTile = torch.cat([
+#         X.repeat([outViewN, 1, 1]), # [V,H,W]
+#         Y.repeat([outViewN, 1, 1]), # [V,H,W]
+#         torch.ones([outViewN, outH, outW]).float() * renderDepth, 
+#         torch.zeros([outViewN, outH, outW]).float(),
+#     ], dim=0) # [4V,H,W]
     initTile = torch.cat([
         X.repeat([outViewN, 1, 1]), # [V,H,W]
         Y.repeat([outViewN, 1, 1]), # [V,H,W]
         torch.ones([outViewN, outH, outW]).float() * renderDepth, 
         torch.zeros([outViewN, outH, outW]).float(),
-    ], dim=0) # [4V,H,W]
+        torch.zeros([outViewN, outH, outW]).float(),
+    ], dim=0) # [5V,H,W]
 
-    return initTile.unsqueeze_(dim=0) # [1,4V,H,W]
+    #return initTile.unsqueeze_(dim=0) # [1,4V,H,W]
+    return initTile.unsqueeze_(dim=0) # [1,5V,H,W]
 
 
 class Encoder(nn.Module):
@@ -85,7 +93,8 @@ class Decoder(nn.Module):
         self.deconv3 = deconv2d_block(128, 96)
         self.deconv4 = deconv2d_block(96, 64)
         self.deconv5 = deconv2d_block(64, 48)
-        self.pixel_conv = nn.Conv2d(48, outViewN*4, 1, stride=1, bias=False)
+        #self.pixel_conv = nn.Conv2d(48, outViewN*4, 1, stride=1, bias=False)
+        self.pixel_conv = nn.Conv2d(48, outViewN*5, 1, stride=1, bias=False)
         self.pixel_bias = pixel_bias(outViewN, outW, outH, renderDepth)
 
     def forward(self, x):
@@ -100,8 +109,10 @@ class Decoder(nn.Module):
         x = self.deconv4(F.interpolate(x, scale_factor=2))
         x = self.deconv5(F.interpolate(x, scale_factor=2))
         x = self.pixel_conv(x) + self.pixel_bias.to(x.device)
+        #XYZ, maskLogit = torch.split(
+        #    x, [self.outViewN * 3, self.outViewN], dim=1)
         XYZ, maskLogit = torch.split(
-            x, [self.outViewN * 3, self.outViewN], dim=1)
+            x, [self.outViewN * 3, self.outViewN *2], dim=1)
 
         return XYZ, maskLogit
 
