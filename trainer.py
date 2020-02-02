@@ -15,8 +15,8 @@ class TrainerStage1:
         self.cfg = cfg
         self.data_loaders = data_loaders
         self.l1 = criterions[0]
-        self.sigmoid_bce = criterions[1]
         ###################################
+        #self.sigmoid_bce = criterions[1]
         self.cross_entropy = criterions[1]
         ###################################
         self.iteration = 0
