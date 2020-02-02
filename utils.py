@@ -89,8 +89,9 @@ def unpack_batch_novel(batch, device):
 def define_losses():
     l1_loss = nn.L1Loss()
     #bce_loss = nn.BCEWithLogitsLoss()
-    bce_loss = nn.CrossEntropyLoss()
-    return l1_loss, bce_loss
+    ce_loss = nn.CrossEntropyLoss()
+    #return l1_loss, bce_loss
+    return l1_loss, ce_loss
 
 def build_structure_generator(cfg):
     model = Structure_Generator(
