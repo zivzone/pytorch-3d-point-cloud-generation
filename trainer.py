@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import scipy.io
 import torch
+import torch.nn as nn
 
 import transform
 import utils
@@ -46,16 +47,18 @@ class TrainerStage1:
             self.history.append(hist)
             
             
-            #######################################################
-#             if self.on_after_epoch is not None:
+            ######################################################
+            if self.on_after_epoch is not None:
 #                 images = self._make_images_board(model)
 #                 self.on_after_epoch(model, pd.DataFrame(self.history),
 #                                     images, self.epoch)
-            #######################################################
+                self.on_after_epoch(model, pd.DataFrame(self.history),self.epoch)
+            ######################################################
         print("======= TRAINING DONE =======")
         return pd.DataFrame(self.history)
 
     def _train_on_epoch(self, model, optimizer):
+        #model=nn.DataParallel(model,device_ids=[0,1])
         model.train()
 
         data_loader = self.data_loaders[0]
@@ -103,7 +106,20 @@ class TrainerStage1:
                 #loss_mask = self.sigmoid_bce(maskLogit, maskGT.long())
 #                 print(maskLogit[:,0:8,:,:].type())
 #                 print(maskLogit[:,0:8,:,:].size())
-                maskLogit = torch.stack([maskLogit[:,0:8,:,:],maskLogit[:,8:16,:,:]],dim=1)
+                tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+                                   maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+                                   maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+                                   
+                #print(tmp_1.size())
+                tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+                                   maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+                                   maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
+                #print(tmp_2.size())
+
+                #maskLogit = torch.cat([tmp_1,tmp_2],4)
+                maskLogit = torch.stack([tmp_1,tmp_2],dim=1)
+                #print(maskLogit.size())
+                #maskLogit = torch.stack([maskLogit[:,0:8,:,:],maskLogit[:,8:16,:,:]],dim=1)
 #                 print(maskLogit.type())
 #                 print(maskLogit.size())
                 loss_mask = self.cross_entropy(maskLogit, maskGT.long())
@@ -179,7 +195,19 @@ class TrainerStage1:
                 #loss_mask = self.sigmoid_bce(maskLogit, maskGT.long())
 #                 print(maskLogit[:,0:8,:,:].type())
 #                 print(maskLogit[:,0:8,:,:].size())
-                maskLogit = torch.stack([maskLogit[:,0:8,:,:],maskLogit[:,8:16,:,:]],dim=1)
+                tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+                                   maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+                                   maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+                                   
+                #print(tmp_1.size())
+                tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+                                   maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+                                   maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
+                #print(tmp_2.size())
+
+                #maskLogit = torch.cat([tmp_1,tmp_2],4)
+                maskLogit = torch.stack([tmp_1,tmp_2],dim=1)
+                #maskLogit = torch.stack([maskLogit[:,0:8,:,:],maskLogit[:,8:16,:,:]],dim=1)
 #                 print(maskLogit.type())
 #                 print(maskLogit.size())
                 loss_mask = self.cross_entropy(maskLogit, maskGT.long())
@@ -213,7 +241,7 @@ class TrainerStage1:
             XYZ, maskLogit = model(input_images)
             XY = XYZ[:, :self.cfg.outViewN * 2, :, :]
             depth = XYZ[:, self.cfg.outViewN * 2:self.cfg.outViewN * 3, :,  :]
-            mask = (maskLogit > 0).float()
+            mask = (maskLogit[:, self.cfg.outViewN * 2:self.cfg.outViewN * 3, :,  :] > 0).float()
 
         return {'RGB': utils.make_grid(input_images[:num_imgs]),
                 'depth': utils.make_grid(1-depth[:num_imgs, 0:1, :, :]),
