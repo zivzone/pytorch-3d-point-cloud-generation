@@ -3,7 +3,14 @@
 # 	--chunkSize 32 --batchSize 32 \
 # 	--gpu 0
 
-python evaluate.py --model ORIG_STG2 --experiment sgd_trueWD_restart_cont1 \
-	--loadPath ORIG_STG2_sgd_trueWD_restart_cont1 \
+# +
+# python evaluate.py --model ORIG_STG2 --experiment sgd_trueWD_restart_cont1 \
+# 	--loadPath ORIG_STG2_sgd_trueWD_restart_cont1 \
+# 	--chunkSize 32 --batchSize 32 \
+# 	--gpu 0
+# -
+
+python evaluate.py --model ORIG_STG1 --experiment adam_trueWD_restart \
+	--loadPath ORIG_STG1_adam_trueWD_restart \
 	--chunkSize 32 --batchSize 32 \
 	--gpu 0
