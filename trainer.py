@@ -8,6 +8,8 @@ import torch.nn as nn
 import transform
 import utils
 
+from tqdm import tqdm
+
 
 class TrainerStage1:
     '''Train loop and evaluation for stage 1 Structure generator'''
@@ -29,7 +31,7 @@ class TrainerStage1:
     def train(self, model, optimizer, scheduler):
         print("======= TRAINING START =======")
 
-        for self.epoch in range(self.cfg.startEpoch, self.cfg.endEpoch):
+        for self.epoch in tqdm(range(self.cfg.startEpoch, self.cfg.endEpoch)):
             print(f"Epoch {self.epoch}:")
 
             train_epoch_loss = self._train_on_epoch(model, optimizer)
@@ -84,10 +86,18 @@ class TrainerStage1:
                 XYZ, maskLogit = model(input_images)
                 XY = XYZ[:, :self.cfg.outViewN * 2, :, :]
                 depth = XYZ[:, self.cfg.outViewN * 2:self.cfg.outViewN * 3, :,  :]
+                ####################################################################
                 ##################################
-                
+                tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+                                   maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+                                   maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+
+                #print(tmp_1.size())
+                tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+                                   maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+                                   maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
                 #mask = (maskLogit > 0).byte()
-                mask = (maskLogit[:,8:16,:,:] > 0).byte()
+                mask = (tmp_2 > 0).byte()
                 
                 ###################################
 #                 print(mask.type())
@@ -180,11 +190,20 @@ class TrainerStage1:
                 XYZ, maskLogit = model(input_images)
                 XY = XYZ[:, :self.cfg.outViewN * 2, :, :]
                 depth = XYZ[:, self.cfg.outViewN * 2:self.cfg.outViewN*3,:,:]
+                #######################################################
+                tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+                                   maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+                                   maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+
+                #print(tmp_1.size())
+                tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+                                   maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+                                   maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
                 ##################################
                 #mask = (maskLogit > 0).byte()
 
                 #mask = (maskLogit > 0).byte()
-                mask = (maskLogit[:,8:16,:,:] > 0).byte()
+                mask = (tmp_2 > 0).byte()
                 
                 ###################################
                 # ------ Compute loss ------
@@ -317,7 +336,8 @@ class TrainerStage2:
         self.cfg = cfg
         self.data_loaders = data_loaders
         self.l1 = criterions[0]
-        self.sigmoid_bce = criterions[1]
+        #self.sigmoid_bce = criterions[1]
+        self.sigmoid_bce = criterions[2]
         self.iteration = 0
         self.epoch = 0
         self.history = []
@@ -327,7 +347,7 @@ class TrainerStage2:
     def train(self, model, optimizer, scheduler):
         print("======= TRAINING START =======")
 
-        for self.epoch in range(self.cfg.startEpoch, self.cfg.endEpoch):
+        for self.epoch in tqdm(range(self.cfg.startEpoch, self.cfg.endEpoch)):
             print(f"Epoch {self.epoch}:")
 
             train_epoch_loss = self._train_on_epoch(model, optimizer)
@@ -369,15 +389,77 @@ class TrainerStage2:
                 optimizer.zero_grad()
 
                 XYZ, maskLogit = model(input_images)
+#                 print(XYZ.size())
+#                 print(maskLogit.size())
+                ####################################################################
+                ##################################
+                tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+                                   maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+                                   maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+
+                #print(tmp_1.size())
+                tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+                                   maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+                                   maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
+                #mask = (maskLogit > 0).byte()
+                mask = (maskLogit[:,8:16,:,:] > 0).byte()
+                #mask = (tmp_2 > 0).byte()
+                mask = mask.float()
+#                 print(mask.size())
+                ###################################
+#                 print(mask.type())
+#                 print(mask.size())
+#                 print(maskGT.type())
+#                 print(maskGT.size())                
                 # ------ build transformer ------
+#                 XYZid, ML = transform.fuse3D(
+#                     self.cfg, XYZ, maskLogit, fuseTrans) # [B,3,VHW],[B,1,VHW]
+                #######################################################
+
                 XYZid, ML = transform.fuse3D(
-                    self.cfg, XYZ, maskLogit, fuseTrans) # [B,3,VHW],[B,1,VHW]
+                    self.cfg, XYZ, mask, fuseTrans) # [B,3,VHW],[B,1,VHW]
+                #######################################################
+#                 print(XYZid.size())
+#                 print(ML.size())
                 newDepth, newMaskLogit, collision = transform.render2D(
                     self.cfg, XYZid, ML, renderTrans)  # [B,N,H,W,1]
+#                 print(newDepth.size())
+#                 print(newMaskLogit.size())
+#                 print(collision.size())
+#                 print(maskGT.size())
+
                 # ------ Compute loss ------
+                #######################################################
+                #loss_mask = self.sigmoid_bce(maskLogit, maskGT.long())
+#                 print(maskLogit[:,0:8,:,:].type())
+#                 print(maskLogit[:,0:8,:,:].size())
+#                 tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+#                                    maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+#                                    maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+                                   
+#                 #print(tmp_1.size())
+#                 tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+#                                    maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+#                                    maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
+#                 #print(tmp_2.size())
+
+#                 #maskLogit = torch.cat([tmp_1,tmp_2],4)
+#                 maskLogit = torch.stack([tmp_1,tmp_2],dim=1)
+                #print(maskLogit.size())
+                #maskLogit = torch.stack([maskLogit[:,0:8,:,:],maskLogit[:,8:16,:,:]],dim=1)
+#                 print(maskLogit.type())
+#                 print(maskLogit.size())
+                #loss_mask = self.cross_entropy(maskLogit, maskGT.long())
+                
+                #######################################################
+                #loss_mask = self.sigmoid_bce(maskLogit, maskGT)
+                
+                
                 loss_depth = self.l1(
                     newDepth.masked_select(collision==1),
                     depthGT.masked_select(collision==1))
+#                 print(newMaskLogit.size())
+#                 print(maskGT.size())
                 loss_mask = self.sigmoid_bce(newMaskLogit, maskGT)
                 loss = loss_mask + self.cfg.lambdaDepth * loss_depth
 
@@ -424,9 +506,29 @@ class TrainerStage2:
 
             with torch.set_grad_enabled(False):
                 XYZ, maskLogit = model(input_images)
+                ####################################################################
+                ##################################
+                tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+                                   maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+                                   maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+
+                #print(tmp_1.size())
+                tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+                                   maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+                                   maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
+                #mask = (maskLogit > 0).byte()
+                mask = (maskLogit[:,8:16,:,:] > 0).byte()
+                #mask = (tmp_2 > 0).byte()
+                mask = mask.float()
+#                 print(mask.size())
+                ###################################
                 # ------ build transformer ------
+                ######################################################################
+                #XYZid, ML = transform.fuse3D(
+                #    self.cfg, XYZ, maskLogit, fuseTrans) # [B,3,VHW],[B,1,VHW]
                 XYZid, ML = transform.fuse3D(
-                    self.cfg, XYZ, maskLogit, fuseTrans) # [B,3,VHW],[B,1,VHW]
+                    self.cfg, XYZ, mask, fuseTrans) # [B,3,VHW],[B,1,VHW]
+                ######################################################################
                 newDepth, newMaskLogit, collision = transform.render2D(
                     self.cfg, XYZid, ML, renderTrans)  # [B,N,H,W,1]
                 # ------ Compute loss ------
@@ -460,6 +562,21 @@ class TrainerStage2:
 
         with torch.set_grad_enabled(False):
             XYZ, maskLogit = model(input_images)
+            ##################################
+            tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+                               maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+                               maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+
+            #print(tmp_1.size())
+            tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+                               maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+                               maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
+            #mask = (maskLogit > 0).byte()
+            maskLogit = (maskLogit[:,8:16,:,:] > 0).byte()
+            maskLogit = maskLogit.float()
+            #mask = (tmp_2 > 0).byte()
+#                 print(mask.size())
+            ###################################
             # ------ build transformer ------
             XYZid, ML = transform.fuse3D(
                 self.cfg, XYZ, maskLogit, fuseTrans) # [B,3,VHW],[B,1,VHW]
@@ -555,6 +672,23 @@ class Validator:
             points24 = np.zeros([self.cfg.inputViewN, 1], dtype=np.object)
 
             XYZ, maskLogit = model(input_images)
+            #################################################################################################
+            tmp_1 = torch.cat([maskLogit[:,0:1,:,:],maskLogit[:,2:3,:,:],maskLogit[:,4:5,:,:],
+                                   maskLogit[:,6:7,:,:],maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],
+                                   maskLogit[:,11:12,:,:],maskLogit[:,13:14,:,:]],1)
+                                   
+            #print(tmp_1.size())
+            tmp_2 = torch.cat([maskLogit[:,1:2,:,:],maskLogit[:,3:4,:,:],maskLogit[:,5:6,:,:],
+                               maskLogit[:,7:8,:,:],maskLogit[:,9:10,:,:],maskLogit[:,11:12,:,:],
+                               maskLogit[:,13:14,:,:],maskLogit[:,15:16,:,:]],1)
+            #print(tmp_2.size())
+
+            #maskLogit = torch.cat([tmp_1,tmp_2],4)
+            #maskLogit = torch.stack([tmp_1,tmp_2],dim=1)
+            maskLogit = tmp_2
+            #################################################################################################
+            #print(torch.min(maskLogit))
+            #mask = (maskLogit > 0).float()
             mask = (maskLogit > 0).float()
             # ------ build transformer ------
             XYZid, ML = transform.fuse3D(
@@ -564,8 +698,10 @@ class Validator:
             for a in range(self.cfg.inputViewN):
                 xyz = XYZid[a] #[VHW, 3]
                 ml = ML[a] #[VHW]
+                #######################################################################################
+                #points24[a, 0] = (xyz[ml > 0]).detach().cpu().numpy()
                 points24[a, 0] = (xyz[ml > 0]).detach().cpu().numpy()
-
+                ###########################################################################################
             pointMeanN = np.array([len(p) for p in points24[:, 0]]).mean()
             scipy.io.savemat(
                 f"{self.result_path}/{self.CADs[i]}.mat", 
